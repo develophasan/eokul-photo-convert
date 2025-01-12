@@ -80,7 +80,8 @@ document.addEventListener('DOMContentLoaded', () => {
             reader.onload = () => {
                 try {
                     // Base64 verinin başındaki "data:image/xxx;base64," kısmını kaldır
-                    const base64Data = reader.result.split(';base64,').pop();
+                    const base64 = reader.result;
+                    const base64Data = base64.substring(base64.indexOf(',') + 1);
                     resolve(base64Data);
                 } catch (error) {
                     reject(new Error(`Base64 dönüşüm hatası: ${error.message}`));
