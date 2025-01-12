@@ -4,7 +4,7 @@
   "description": "Öğrenci fotoğraflarını e-okul standartlarına uygun şekilde dönüştüren web uygulaması",
   "scripts": {
     "start": "netlify dev",
-    "build": "cp -r public/* .",
+    "build": "mkdir -p dist && cp -r public/* dist/ && cp index.html dist/",
     "dev": "netlify dev"
   },
   "dependencies": {
