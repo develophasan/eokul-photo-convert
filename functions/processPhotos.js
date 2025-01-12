@@ -27,7 +27,7 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { photos } = JSON.parse(event.body);
+    let { photos } = JSON.parse(event.body);
     
     if (!photos || !Array.isArray(photos)) {
       throw new Error('Geçersiz fotoğraf verisi');
@@ -41,25 +41,41 @@ exports.handler = async (event) => {
         throw new Error('Geçersiz fotoğraf formatı');
       }
 
-      const buffer = Buffer.from(photo.data, 'base64');
-      
-      const processedBuffer = await sharp(buffer)
-        .rotate()
-        .resize(133, 171, {
-          fit: 'cover',
-          position: 'center'
-        })
-        .withMetadata()
-        .jpeg({ 
-          quality: 100,
-          chromaSubsampling: '4:4:4'
-        })
-        .toBuffer();
+      try {
+        const buffer = Buffer.from(photo.data, 'base64');
+        
+        // Sharp instance'ı oluştur
+        const image = sharp(buffer);
 
-      processedPhotos.push({
-        name: photo.name,
-        data: processedBuffer.toString('base64')
-      });
+        // Metadata kontrol et
+        const metadata = await image.metadata();
+        console.log('Metadata:', metadata);
+
+        // Görüntüyü işle
+        const processedBuffer = await image
+          .rotate() // EXIF rotasyonunu uygula
+          .resize(133, 171, {
+            fit: 'cover',
+            position: 'center'
+          })
+          .jpeg({
+            quality: 100,
+            chromaSubsampling: '4:4:4'
+          })
+          .toBuffer();
+
+        // Sonucu kontrol et
+        const processedMetadata = await sharp(processedBuffer).metadata();
+        console.log('Processed Metadata:', processedMetadata);
+
+        processedPhotos.push({
+          name: photo.name,
+          data: processedBuffer.toString('base64')
+        });
+      } catch (photoError) {
+        console.error('Fotoğraf işleme hatası:', photoError);
+        throw new Error(`${photo.name} dosyası işlenirken hata oluştu: ${photoError.message}`);
+      }
     }
 
     // ZIP dosyası oluştur
@@ -69,11 +85,12 @@ exports.handler = async (event) => {
 
     const chunks = [];
     archive.on('data', (chunk) => chunks.push(chunk));
-    archive.on('end', () => {});
+    archive.on('warning', (err) => console.warn('Arşiv uyarısı:', err));
     archive.on('error', (err) => {
-      throw err;
+      throw new Error(`Arşiv oluşturma hatası: ${err.message}`);
     });
 
+    // Fotoğrafları arşive ekle
     for (const [index, photo] of processedPhotos.entries()) {
       const buffer = Buffer.from(photo.data, 'base64');
       archive.append(buffer, { name: `photo_${index + 1}.jpg` });
@@ -93,13 +110,14 @@ exports.handler = async (event) => {
     };
 
   } catch (error) {
-    console.error('Hata:', error);
+    console.error('İşlem hatası:', error);
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         error: 'İşlem sırasında bir hata oluştu',
-        details: error.message 
+        details: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
       })
     };
   }
