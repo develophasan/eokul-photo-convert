@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const progressBar = document.getElementById('progressBar');
     const progressText = document.getElementById('progressText');
     const selectedFiles = [];
+    const processedFiles = new Map(); // İşlenmiş dosyaları tutacak Map
 
     // Drag & Drop olayları
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -55,9 +56,18 @@ document.addEventListener('DOMContentLoaded', () => {
             reader.onload = (e) => {
                 const div = document.createElement('div');
                 div.className = 'relative group';
+                
+                const isProcessed = processedFiles.has(file.name);
+                const buttonClass = isProcessed ? 'bg-green-500' : 'bg-indigo-500';
+                const buttonText = isProcessed ? 'İndir' : 'İşle';
+                
                 div.innerHTML = `
                     <img src="${e.target.result}" alt="${file.name}" class="w-32 h-40 object-cover rounded shadow hover:scale-105 transition-transform">
                     <button onclick="removeFile(${index})" class="absolute top-0 right-0 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">×</button>
+                    <button onclick="${isProcessed ? `downloadFile('${file.name}')` : `processFile(${index})`}" 
+                            class="absolute bottom-2 right-2 ${buttonClass} text-white text-sm rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        ${buttonText}
+                    </button>
                 `;
                 previewContainer.appendChild(div);
             };
@@ -70,8 +80,82 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     window.removeFile = (index) => {
+        const fileName = selectedFiles[index].name;
+        processedFiles.delete(fileName);
         selectedFiles.splice(index, 1);
         updatePreview();
+    };
+
+    window.downloadFile = (fileName) => {
+        const processedData = processedFiles.get(fileName);
+        if (processedData) {
+            const link = document.createElement('a');
+            link.href = `data:image/jpeg;base64,${processedData}`;
+            link.download = `processed_${fileName}`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    };
+
+    window.processFile = async (index) => {
+        const file = selectedFiles[index];
+        progressContainer.style.display = 'block';
+        progressBar.style.width = '25%';
+        progressText.textContent = `${file.name} işleniyor...`;
+
+        try {
+            const base64Data = await readFileAsBase64(file);
+            
+            progressBar.style.width = '50%';
+            progressText.textContent = 'Sunucuya yükleniyor...';
+
+            const response = await fetch('/.netlify/functions/processPhotos', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    photo: {
+                        name: file.name,
+                        data: base64Data
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Bilinmeyen bir hata oluştu');
+            }
+
+            progressBar.style.width = '75%';
+            progressText.textContent = 'İşleniyor...';
+
+            const result = await response.json();
+            processedFiles.set(file.name, result.data);
+
+            progressBar.style.width = '100%';
+            progressBar.style.backgroundColor = '#10B981';
+            progressText.textContent = 'İşlem tamamlandı!';
+
+            // Önizlemeyi güncelle
+            updatePreview();
+
+            setTimeout(() => {
+                progressBar.style.backgroundColor = '#6366F1';
+                progressContainer.style.display = 'none';
+            }, 2000);
+
+        } catch (error) {
+            console.error('Hata:', error);
+            progressBar.style.width = '100%';
+            progressBar.style.backgroundColor = '#EF4444';
+            progressText.textContent = `Hata: ${error.message}`;
+
+            setTimeout(() => {
+                progressBar.style.backgroundColor = '#6366F1';
+            }, 3000);
+        }
     };
 
     async function readFileAsBase64(file) {
@@ -79,7 +163,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const reader = new FileReader();
             reader.onload = () => {
                 try {
-                    // Base64 verinin başındaki "data:image/xxx;base64," kısmını kaldır
                     const base64 = reader.result;
                     const base64Data = base64.substring(base64.indexOf(',') + 1);
                     resolve(base64Data);
@@ -92,74 +175,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    processButton.addEventListener('click', async () => {
-        if (selectedFiles.length === 0) return;
-
-        progressContainer.style.display = 'block';
-        progressBar.style.width = '25%';
-        progressText.textContent = 'Fotoğraflar hazırlanıyor...';
-
-        try {
-            const photos = [];
-            for (const file of selectedFiles) {
-                try {
-                    const base64Data = await readFileAsBase64(file);
-                    photos.push({
-                        name: file.name,
-                        data: base64Data
-                    });
-                } catch (error) {
-                    throw new Error(`${file.name}: ${error.message}`);
-                }
+    processButton.addEventListener('click', () => {
+        selectedFiles.forEach((_, index) => {
+            if (!processedFiles.has(selectedFiles[index].name)) {
+                setTimeout(() => processFile(index), index * 1000);
             }
-
-            progressBar.style.width = '50%';
-            progressText.textContent = 'Fotoğraflar yükleniyor...';
-
-            const response = await fetch('/.netlify/functions/processPhotos', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ photos })
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.details || errorData.error || 'Bilinmeyen bir hata oluştu');
-            }
-
-            progressBar.style.width = '75%';
-            progressText.textContent = 'Fotoğraflar işleniyor...';
-
-            const blob = await response.blob();
-            progressBar.style.width = '100%';
-            progressBar.style.backgroundColor = '#10B981';
-            progressText.textContent = 'İşlem tamamlandı!';
-
-            // ZIP dosyasını indir
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'processed_photos.zip';
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-
-            // Seçili dosyaları temizle
-            selectedFiles.length = 0;
-            updatePreview();
-
-        } catch (error) {
-            console.error('Hata:', error);
-            progressBar.style.width = '100%';
-            progressBar.style.backgroundColor = '#EF4444';
-            progressText.textContent = `Hata: ${error.message}`;
-
-            setTimeout(() => {
-                progressBar.style.backgroundColor = '#6366F1';
-            }, 3000);
-        }
+        });
     });
 }); 
