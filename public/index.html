@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-Okul Fotoğraf Dönüştürücü</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta name="description" content="E-Okul ve MEBBİS için fotoğraf dönüştürme uygulaması. Fotoğraflarınızı otomatik olarak 133x171 piksel boyutuna ve minimum 20KB boyutuna dönüştürün.">
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col">
+    <div class="container mx-auto px-4 py-8 flex-grow">
+        <header class="text-center mb-12">
+            <h1 class="text-4xl font-bold text-gray-800 mb-4">E-Okul Fotoğraf Dönüştürücü</h1>
+            <p class="text-gray-600 max-w-2xl mx-auto">Bu uygulama, toplu fotoğraflarınızı E-Okul ve MEBBİS sistemleri için gereken standartlara otomatik olarak dönüştürür.</p>
+        </header>
+
+        <div class="max-w-4xl mx-auto mb-12 bg-white rounded-lg shadow-sm p-6 border border-gray-100">
+            <div class="prose max-w-none mb-8">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Özellikler ve Kullanım</h2>
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="space-y-2">
+                        <h3 class="text-lg font-medium text-gray-700">Teknik Özellikler</h3>
+                        <ul class="list-disc list-inside text-gray-600 space-y-1">
+                            <li>Fotoğraf boyutu: 133x171 piksel</li>
+                            <li>Minimum dosya boyutu: 20KB</li>
+                            <li>Format: JPEG</li>
+                            <li>Yüksek görüntü kalitesi</li>
+                            <li>Otomatik yön düzeltme</li>
+                        </ul>
+                    </div>
+                    <div class="space-y-2">
+                        <h3 class="text-lg font-medium text-gray-700">Nasıl Kullanılır?</h3>
+                        <ul class="list-decimal list-inside text-gray-600 space-y-1">
+                            <li>Fotoğrafları sürükleyip bırakın veya seçin</li>
+                            <li>Birden fazla fotoğraf seçebilirsiniz (max. 20)</li>
+                            <li>"İşleme Başla" butonuna tıklayın</li>
+                            <li>İşlem tamamlandığında ZIP dosyasını indirin</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-sm p-6 max-w-2xl mx-auto border border-gray-100">
+            <div class="mb-6">
+                <div class="relative border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-indigo-500 transition-colors" id="dropZone">
+                    <input type="file" id="fileInput" multiple accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                    <div class="space-y-2">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                        <div class="text-sm text-gray-600">
+                            <label for="fileInput" class="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500">
+                                <span>Fotoğrafları Yükle</span>
+                            </label>
+                            <p class="pl-1">veya sürükleyip bırakın</p>
+                        </div>
+                        <p class="text-xs text-gray-500">PNG, JPG, JPEG (max. 5MB/dosya)</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="previewContainer" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 hidden"></div>
+
+            <div id="progressContainer" class="hidden">
+                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                    <div id="progressBar" class="bg-indigo-600 h-2.5 rounded-full" style="width: 0%"></div>
+                </div>
+                <p id="progressText" class="text-sm text-gray-600 mt-2 text-center">İşleniyor...</p>
+            </div>
+
+            <div class="flex justify-center space-x-4">
+                <button id="processButton" class="hidden px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all">
+                    İşleme Başla
+                </button>
+                <button id="downloadButton" class="hidden px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-all">
+                    İndir
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-white border-t border-gray-100 py-6 mt-12">
+        <div class="container mx-auto px-4 text-center">
+            <p class="text-gray-600">
+                Geliştirici: 
+                <a href="https://github.com/develophasan" target="_blank" rel="noopener noreferrer" 
+                   class="text-indigo-600 hover:text-indigo-700 font-medium">
+                    Hasan Özdemir
+                </a>
+            </p>
+            <div class="mt-2 flex justify-center space-x-4">
+                <a href="https://github.com/develophasan" target="_blank" rel="noopener noreferrer" 
+                   class="text-gray-500 hover:text-gray-700 flex items-center">
+                    <svg class="h-5 w-5 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                        <path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd"></path>
+                    </svg>
+                    GitHub
+                </a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/app.js"></script>
+</body>
+</html> 
