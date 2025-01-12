@@ -99,6 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
         progressText.textContent = 'Fotoğraflar işleniyor...';
 
         try {
+            progressBar.style.width = '25%';
             const photos = await Promise.all(selectedFiles.map(async file => {
                 const base64 = await readFileAsBase64(file);
                 return {
@@ -107,6 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
             }));
 
+            progressBar.style.width = '50%';
             const response = await fetch('/.netlify/functions/processPhotos', {
                 method: 'POST',
                 headers: {
@@ -115,8 +117,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ photos })
             });
 
+            progressBar.style.width = '75%';
+
             if (!response.ok) {
-                throw new Error('İşlem sırasında bir hata oluştu');
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'İşlem sırasında bir hata oluştu');
             }
 
             const blob = await response.blob();
@@ -124,17 +129,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
             progressBar.style.width = '100%';
             progressText.textContent = 'İşlem tamamlandı!';
+            progressBar.style.backgroundColor = '#10B981';
 
             setTimeout(() => {
                 progressContainer.style.display = 'none';
                 processButton.disabled = false;
+                selectedFiles = [];
+                updatePreview();
             }, 2000);
 
         } catch (error) {
             console.error('Hata:', error);
             progressText.textContent = 'Hata: ' + error.message;
-            progressBar.style.backgroundColor = '#ef4444';
-            processButton.disabled = false;
+            progressBar.style.width = '100%';
+            progressBar.style.backgroundColor = '#EF4444';
+            
+            setTimeout(() => {
+                processButton.disabled = false;
+                progressBar.style.backgroundColor = '#6366F1';
+            }, 3000);
         }
     });
 
