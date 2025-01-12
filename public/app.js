@@ -74,6 +74,23 @@ document.addEventListener('DOMContentLoaded', () => {
         updatePreview();
     };
 
+    async function readFileAsBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                try {
+                    // Base64 verinin başındaki "data:image/xxx;base64," kısmını kaldır
+                    const base64Data = reader.result.split(';base64,').pop();
+                    resolve(base64Data);
+                } catch (error) {
+                    reject(new Error(`Base64 dönüşüm hatası: ${error.message}`));
+                }
+            };
+            reader.onerror = () => reject(new Error('Dosya okuma hatası'));
+            reader.readAsDataURL(file);
+        });
+    }
+
     processButton.addEventListener('click', async () => {
         if (selectedFiles.length === 0) return;
 
@@ -82,29 +99,21 @@ document.addEventListener('DOMContentLoaded', () => {
         progressText.textContent = 'Fotoğraflar hazırlanıyor...';
 
         try {
-            const photoPromises = selectedFiles.map(file => {
-                return new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = () => {
-                        // Base64 verinin başındaki "data:image/jpeg;base64," kısmını kaldır
-                        const base64Data = reader.result.split(',')[1];
-                        resolve({
-                            name: file.name,
-                            data: base64Data
-                        });
-                    };
-                    reader.onerror = reject;
-                    reader.readAsDataURL(file);
-                });
-            });
+            const photos = [];
+            for (const file of selectedFiles) {
+                try {
+                    const base64Data = await readFileAsBase64(file);
+                    photos.push({
+                        name: file.name,
+                        data: base64Data
+                    });
+                } catch (error) {
+                    throw new Error(`${file.name}: ${error.message}`);
+                }
+            }
 
             progressBar.style.width = '50%';
             progressText.textContent = 'Fotoğraflar yükleniyor...';
-
-            const photos = await Promise.all(photoPromises);
-
-            progressBar.style.width = '75%';
-            progressText.textContent = 'Fotoğraflar işleniyor...';
 
             const response = await fetch('/.netlify/functions/processPhotos', {
                 method: 'POST',
@@ -118,6 +127,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const errorData = await response.json();
                 throw new Error(errorData.details || errorData.error || 'Bilinmeyen bir hata oluştu');
             }
+
+            progressBar.style.width = '75%';
+            progressText.textContent = 'Fotoğraflar işleniyor...';
 
             const blob = await response.blob();
             progressBar.style.width = '100%';
