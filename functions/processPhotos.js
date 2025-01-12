@@ -1,4 +1,4 @@
-const sharp = require('sharp');
+const Jimp = require('jimp');
 const archiver = require('archiver');
 const { Buffer } = require('buffer');
 
@@ -44,29 +44,21 @@ exports.handler = async (event) => {
       try {
         const buffer = Buffer.from(photo.data, 'base64');
         
-        // Sharp instance'ı oluştur
-        const image = sharp(buffer);
-
-        // Metadata kontrol et
-        const metadata = await image.metadata();
-        console.log('Metadata:', metadata);
+        // Fotoğrafı Jimp ile yükle
+        const image = await Jimp.read(buffer);
+        
+        console.log('Orijinal boyut:', image.bitmap.width, 'x', image.bitmap.height);
 
         // Görüntüyü işle
-        const processedBuffer = await image
-          .rotate() // EXIF rotasyonunu uygula
-          .resize(133, 171, {
-            fit: 'cover',
-            position: 'center'
-          })
-          .jpeg({
-            quality: 100,
-            chromaSubsampling: '4:4:4'
-          })
-          .toBuffer();
+        image
+          .cover(133, 171) // Belirtilen boyuta kırp
+          .quality(100); // Maksimum kalite
 
-        // Sonucu kontrol et
-        const processedMetadata = await sharp(processedBuffer).metadata();
-        console.log('Processed Metadata:', processedMetadata);
+        // İşlenmiş görüntüyü buffer'a dönüştür
+        const processedBuffer = await image.getBufferAsync(Jimp.MIME_JPEG);
+        
+        const processedImage = await Jimp.read(processedBuffer);
+        console.log('İşlenmiş boyut:', processedImage.bitmap.width, 'x', processedImage.bitmap.height);
 
         processedPhotos.push({
           name: photo.name,

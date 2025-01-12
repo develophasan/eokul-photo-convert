@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@netlify/functions": "^2.4.1",
-    "sharp": "0.32.6",
+    "jimp": "^0.22.10",
     "archiver": "^6.0.1",
     "buffer": "^6.0.3"
   },
