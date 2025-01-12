@@ -27,45 +27,49 @@ exports.handler = async (event) => {
   }
 
   try {
-    let { photos } = JSON.parse(event.body);
-    
-    if (!photos || !Array.isArray(photos)) {
-      throw new Error('Geçersiz fotoğraf verisi');
+    // Request body'yi parse et
+    const requestBody = JSON.parse(event.body);
+    console.log('Request body parsed');
+
+    if (!requestBody.photos || !Array.isArray(requestBody.photos)) {
+      throw new Error('Geçersiz istek formatı: photos array gerekli');
     }
 
     const processedPhotos = [];
+    console.log(`İşlenecek fotoğraf sayısı: ${requestBody.photos.length}`);
 
     // Her fotoğrafı işle
-    for (const photo of photos) {
-      if (!photo.data || !photo.name) {
-        throw new Error('Geçersiz fotoğraf formatı');
-      }
-
+    for (const photo of requestBody.photos) {
       try {
-        const buffer = Buffer.from(photo.data, 'base64');
-        
-        // Fotoğrafı Jimp ile yükle
-        const image = await Jimp.read(buffer);
-        
-        console.log('Orijinal boyut:', image.bitmap.width, 'x', image.bitmap.height);
+        console.log(`İşleniyor: ${photo.name}`);
+
+        if (!photo.data) {
+          throw new Error('Fotoğraf verisi eksik');
+        }
+
+        // Base64'ü buffer'a çevir
+        const imageBuffer = Buffer.from(photo.data, 'base64');
+        console.log('Base64 buffer\'a çevrildi');
+
+        // Jimp ile görüntüyü yükle
+        const image = await Jimp.read(imageBuffer);
+        console.log('Görüntü Jimp ile yüklendi');
 
         // Görüntüyü işle
-        image
-          .cover(133, 171) // Belirtilen boyuta kırp
-          .quality(100); // Maksimum kalite
+        image.cover(133, 171)    // Belirtilen boyuta kırp
+             .quality(100);      // Maksimum kalite
 
-        // İşlenmiş görüntüyü buffer'a dönüştür
+        // İşlenmiş görüntüyü buffer'a çevir
         const processedBuffer = await image.getBufferAsync(Jimp.MIME_JPEG);
-        
-        const processedImage = await Jimp.read(processedBuffer);
-        console.log('İşlenmiş boyut:', processedImage.bitmap.width, 'x', processedImage.bitmap.height);
+        console.log('Görüntü işlendi ve buffer\'a çevrildi');
 
         processedPhotos.push({
           name: photo.name,
-          data: processedBuffer.toString('base64')
+          data: processedBuffer
         });
+
       } catch (photoError) {
-        console.error('Fotoğraf işleme hatası:', photoError);
+        console.error(`Fotoğraf işleme hatası (${photo.name}):`, photoError);
         throw new Error(`${photo.name} dosyası işlenirken hata oluştu: ${photoError.message}`);
       }
     }
@@ -76,19 +80,19 @@ exports.handler = async (event) => {
     });
 
     const chunks = [];
-    archive.on('data', (chunk) => chunks.push(chunk));
-    archive.on('warning', (err) => console.warn('Arşiv uyarısı:', err));
-    archive.on('error', (err) => {
+    archive.on('data', chunk => chunks.push(chunk));
+    archive.on('warning', err => console.warn('Arşiv uyarısı:', err));
+    archive.on('error', err => {
       throw new Error(`Arşiv oluşturma hatası: ${err.message}`);
     });
 
     // Fotoğrafları arşive ekle
     for (const [index, photo] of processedPhotos.entries()) {
-      const buffer = Buffer.from(photo.data, 'base64');
-      archive.append(buffer, { name: `photo_${index + 1}.jpg` });
+      archive.append(photo.data, { name: `photo_${index + 1}.jpg` });
     }
 
     await archive.finalize();
+    console.log('ZIP dosyası oluşturuldu');
 
     return {
       statusCode: 200,
@@ -108,8 +112,7 @@ exports.handler = async (event) => {
       headers,
       body: JSON.stringify({
         error: 'İşlem sırasında bir hata oluştu',
-        details: error.message,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        details: error.message
       })
     };
   }
